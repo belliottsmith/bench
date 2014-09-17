@@ -186,26 +186,19 @@ public class NonBlockingHashOrderedMap<K extends Comparable<? super K>, V> imple
         }
         if (node == null)
         {
-            // if there's no index entry, calculate how many index bits we're using,
-            // then take a bit away at a time until we hit an index entry that is populated
-            int bits = Integer.bitCount(indexMask);
-            int origbits = bits;
+            // if there's no index entry, remove the most significant bits from the index position
+            // to find the nearest prior index entry
+            int j = i;
             while (node == null)
             {
-                bits--;
-                int i2 = i & ((1 << bits) - 1);
-                node = index[i2 >> INDEX_SHIFT][i2 & INDEX_BUCKET_MASK];
+                j ^= Integer.highestOneBit(j);
+                node = index[j >> INDEX_SHIFT][j & INDEX_BUCKET_MASK];
             }
             // then reintroduce the bits, populating the index buckets as we go
-            int prev = -1;
-            while (bits < origbits)
+            while (j != i)
             {
-                bits++;
-                int j = i & ((1 << bits) - 1);
-                if (j == prev)
-                    continue;
+                j |= Integer.lowestOneBit(i ^ j);
                 node = scrollToBucket(j, node, null, index);
-                prev = j;
             }
         }
         else

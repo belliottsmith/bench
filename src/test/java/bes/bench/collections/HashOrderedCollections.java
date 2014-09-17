@@ -23,16 +23,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.zip.Adler32;
 
-import bes.bench.Compression;
-import net.jpountz.lz4.LZ4Compressor;
-import net.jpountz.lz4.LZ4Factory;
-import net.jpountz.lz4.LZ4FastDecompressor;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -68,8 +65,12 @@ public class HashOrderedCollections
         NBHOM, CSLM
     }
 
-    @Param({"40000000"})
-    private int maxItems;
+    private static Long[] KEYS = new Long[1 << 24];
+    static
+    {
+        for (int i = 0 ; i < KEYS.length ; i++)
+            KEYS[i] = ThreadLocalRandom.current().nextLong();
+    }
 
     @Param({"0.1"})
     private double readWriteRatio;
@@ -77,8 +78,11 @@ public class HashOrderedCollections
     @Param({"NBHOM", "CSLM"})
     private String type;
 
-    private final AtomicReference<InsertOnlyOrderedMap<Long, Long>> map = new AtomicReference<>();
-    private final AtomicLong size = new AtomicLong();
+    @Param("1000000")
+    private int warmup;
+
+    private InsertOnlyOrderedMap<Long, Long> map;
+    private final AtomicInteger nextInsert = new AtomicInteger();
 
     @State(Scope.Thread)
     public static class ThreadState
@@ -87,19 +91,42 @@ public class HashOrderedCollections
     }
 
     @Setup(Level.Iteration)
-    public void setup()
+    public void setup() throws InterruptedException
     {
-        map.set(newMap());
+        nextInsert.set(this.warmup);
+        map = newMap();
+        final int processors = Runtime.getRuntime().availableProcessors();
+        final int warmUp = this.warmup / processors;
+        ExecutorService exec = Executors.newFixedThreadPool(processors);
+        for (int i = 0 ; i < processors ; i++)
+        {
+            final int offset = warmUp * i;
+            exec.execute(new Runnable()
+            {
+                public void run()
+                {
+                    for (int i = 0 ; i < warmUp ; i++)
+                    {
+                        Long key = KEYS[offset + i];
+                        map.putIfAbsent(key, key);
+                    }
+                }
+            });
+        }
+        exec.shutdown();
+        exec.awaitTermination(1L, TimeUnit.DAYS);
     }
 
     @TearDown(Level.Iteration)
     public void teardown() throws InterruptedException
     {
-        map.get().clear();
-        map.set(null);
-        System.gc();
-        System.gc();
+        nextInsert.set(this.warmup);
         Thread.sleep(10);
+        map.clear();
+        map = null;
+        System.gc();
+        System.gc();
+        System.gc();
     }
 
     private InsertOnlyOrderedMap<Long, Long> newMap()
@@ -119,21 +146,18 @@ public class HashOrderedCollections
     {
         if (state.random == null)
             state.random = ThreadLocalRandom.current();
-        if (size.incrementAndGet() == maxItems)
-        {
-            InsertOnlyOrderedMap<Long, Long> prev = map.get();
-            map.set(newMap());
-            size.set(0);
-            prev.clear();
-        }
-        Long key = state.random.nextLong();
         if (state.random.nextFloat() <= readWriteRatio)
         {
-            map.get().get(key);
+            int index = state.random.nextInt(KEYS.length) % nextInsert.get();
+            map.get(KEYS[index]);
         }
         else
         {
-            map.get().putIfAbsent(key, key);
+            int index = nextInsert.incrementAndGet();
+            if (index > KEYS.length)
+                System.out.println(map.size());
+            Long key = KEYS[index];
+            map.putIfAbsent(key, key);
         }
     }
 
@@ -148,9 +172,9 @@ public class HashOrderedCollections
         jmhParams.put("measurements", 10);
         jmhParams.put("measurementLength", 1);
         Map<String, String[]> benchParams = new LinkedHashMap<String, String[]>();
-        benchParams.put("maxItems", new String[] { "40000000" });
         benchParams.put("type", new String[] { "CSLM", "NBHOM" });
         benchParams.put("readWriteRatio", new String[] { "0.9", "0.5", "0.1", "0" });
+        benchParams.put("warmup", new String[] { "1000000" });
         for (String arg : args)
         {
             if (arg.equals("-perf"))
