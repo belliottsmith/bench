@@ -224,7 +224,7 @@ public class NonBlockingHashOrderedMap<K extends Comparable<? super K>, V> imple
         {
             Node[] indexBucket = index[i >> INDEX_SHIFT];
             if (indexBucket != null)
-                indexUpdater.compareAndSet(indexBucket, i & INDEX_BUCKET_MASK, exp, result);
+                indexBucket[i & INDEX_BUCKET_MASK] = result;
         }
         return result;
     }
@@ -354,7 +354,6 @@ public class NonBlockingHashOrderedMap<K extends Comparable<? super K>, V> imple
 
     private static final AtomicIntegerFieldUpdater<NonBlockingHashOrderedMap> sizeUpdater = AtomicIntegerFieldUpdater.newUpdater(NonBlockingHashOrderedMap.class, "size");
     private static final AtomicReferenceFieldUpdater<Node, Node> nextUpdater = AtomicReferenceFieldUpdater.newUpdater(Node.class, Node.class, "next");
-    private static final AtomicReferenceArrayUpdater<Node> indexUpdater = new AtomicReferenceArrayUpdater<>(Node[].class);
     private static final ExecutorService resizer = Executors.newFixedThreadPool(1, new ThreadFactory()
     {
         public Thread newThread(Runnable r)
