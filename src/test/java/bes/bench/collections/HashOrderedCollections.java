@@ -205,7 +205,7 @@ public class HashOrderedCollections
 //                    , "-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
 
         if (addPerf)
-            builder.addProfiler(org.openjdk.jmh.profile.LinuxPerfProfiler.class);
+            builder.addProfiler(org.openjdk.jmh.profile.LinuxPerfAsmProfiler.class);
 
         System.out.println("Running with:");
         System.out.println(jmhParams);
