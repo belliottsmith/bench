@@ -18,9 +18,11 @@
 */
 package bes.bench.collections;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
@@ -125,9 +127,6 @@ public class HashOrderedCollections
         Thread.sleep(10);
         map.clear();
         map = null;
-        System.gc();
-        System.gc();
-        System.gc();
     }
 
     private InsertOnlyOrderedMap<Long, Long> newMap()
@@ -165,7 +164,7 @@ public class HashOrderedCollections
     public static void main(String[] args) throws RunnerException, InterruptedException
     {
         boolean addPerf = false, printGc = false;
-        String xmx = "2G";
+        List<String> vmArgs = new ArrayList<>();
         Map<String, Integer> jmhParams = new HashMap<String, Integer>();
         jmhParams.put("forks", 1);
         jmhParams.put("threads", 4);
@@ -189,9 +188,9 @@ public class HashOrderedCollections
                 printGc = true;
                 continue;
             }
-            if (arg.startsWith("-Xmx"))
+            if (arg.startsWith("-"))
             {
-                xmx = arg;
+                vmArgs.add(arg);
                 continue;
             }
             String[] split = arg.split("=");
@@ -204,6 +203,8 @@ public class HashOrderedCollections
             else
                 throw new IllegalArgumentException(arg + " unknown property");
         }
+        if (vmArgs.isEmpty())
+            vmArgs.add("-Xmx2G");
 
         ChainedOptionsBuilder builder = new OptionsBuilder()
             .include(".*HashOrderedCollections.*")
@@ -217,6 +218,8 @@ public class HashOrderedCollections
 
         if (printGc)
             builder.jvmArgsAppend("-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
+
+        builder.jvmArgsAppend(vmArgs.toArray(new String[0]));
 
         if (addPerf)
             builder.addProfiler(org.openjdk.jmh.profile.LinuxPerfAsmProfiler.class);
