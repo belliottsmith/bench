@@ -67,7 +67,7 @@ public class HashOrderedCollections
         NBHOM, CSLM
     }
 
-    private static Long[] KEYS = new Long[1 << 24];
+    private static Long[] KEYS = new Long[Integer.parseInt(System.getProperty("keyCount"))];
     static
     {
         for (int i = 0 ; i < KEYS.length ; i++)
@@ -83,6 +83,9 @@ public class HashOrderedCollections
     @Param("1000000")
     private int warmup;
 
+    @Param("100")
+    private int batchSize;
+
     private InsertOnlyOrderedMap<Long, Long> map;
     private final AtomicInteger nextInsert = new AtomicInteger();
 
@@ -90,6 +93,10 @@ public class HashOrderedCollections
     public static class ThreadState
     {
         ThreadLocalRandom random;
+        int insertOffset;
+        int insertsRemaining;
+        int readOffset;
+        int readsRemaining;
     }
 
     @Setup(Level.Iteration)
@@ -148,14 +155,25 @@ public class HashOrderedCollections
             state.random = ThreadLocalRandom.current();
         if (state.random.nextFloat() <= readWriteRatio)
         {
-            int index = state.random.nextInt(KEYS.length) % nextInsert.get();
+            if (state.readsRemaining == 0)
+            {
+                int modulus = Math.max(0, nextInsert.get() - batchSize);
+                state.readOffset = state.random.nextInt(KEYS.length) % modulus;
+                state.readsRemaining = batchSize;
+            }
+            int index = state.readOffset++;
+            state.readsRemaining--;
             map.get(KEYS[index]);
         }
         else
         {
-            int index = nextInsert.incrementAndGet();
-            if (index > KEYS.length)
-                System.out.println(map.size());
+            if (state.insertsRemaining == 0)
+            {
+                state.insertOffset = nextInsert.addAndGet(batchSize);
+                state.insertsRemaining = batchSize;
+            }
+            int index = state.insertOffset++;
+            state.insertsRemaining--;
             Long key = KEYS[index];
             map.putIfAbsent(key, key);
         }
@@ -176,6 +194,7 @@ public class HashOrderedCollections
         benchParams.put("type", new String[] { "CSLM", "NBHOM" });
         benchParams.put("readWriteRatio", new String[] { "0.9", "0.5", "0.1", "0" });
         benchParams.put("warmup", new String[] { "1000000" });
+        benchParams.put("batchSize", new String[] { "100" });
         for (String arg : args)
         {
             if (arg.equals("-perf"))
