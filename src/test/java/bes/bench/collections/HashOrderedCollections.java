@@ -93,6 +93,7 @@ public class HashOrderedCollections
     @Setup(Level.Iteration)
     public void setup() throws InterruptedException
     {
+        System.gc();
         nextInsert.set(this.warmup);
         map = newMap();
         final int processors = Runtime.getRuntime().availableProcessors();
@@ -115,6 +116,8 @@ public class HashOrderedCollections
         }
         exec.shutdown();
         exec.awaitTermination(1L, TimeUnit.DAYS);
+        System.gc();
+        System.gc();
     }
 
     @TearDown(Level.Iteration)
