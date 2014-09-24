@@ -163,7 +163,7 @@ public class HashOrderedCollections
 
     public static void main(String[] args) throws RunnerException, InterruptedException
     {
-        boolean addPerf = false;
+        boolean addPerf = false, printGc = false;
         Map<String, Integer> jmhParams = new HashMap<String, Integer>();
         jmhParams.put("forks", 1);
         jmhParams.put("threads", 4);
@@ -180,6 +180,11 @@ public class HashOrderedCollections
             if (arg.equals("-perf"))
             {
                 addPerf = true;
+                continue;
+            }
+            if (arg.equals("-gc"))
+            {
+                printGc = true;
                 continue;
             }
             String[] split = arg.split("=");
@@ -202,7 +207,9 @@ public class HashOrderedCollections
             .measurementIterations(jmhParams.get("measurements"))
             .measurementTime(TimeValue.seconds(jmhParams.get("measurementLength")))
             .jvmArgs("-dsa", "-da");
-//                    , "-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
+
+        if (printGc)
+            builder.jvmArgsAppend("-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
 
         if (addPerf)
             builder.addProfiler(org.openjdk.jmh.profile.LinuxPerfAsmProfiler.class);
