@@ -217,7 +217,10 @@ public class HashOrderedCollections
             .jvmArgs("-dsa", "-da", "-server");
 
         if (printGc)
-            builder.jvmArgsAppend("-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
+        {
+            vmArgs.add("-XX:+PrintGC");
+            vmArgs.add("-XX:+PrintGCTimeStamps");
+        }
 
         builder.jvmArgsAppend(vmArgs.toArray(new String[0]));
 
