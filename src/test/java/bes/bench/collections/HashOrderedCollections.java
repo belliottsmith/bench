@@ -164,6 +164,7 @@ public class HashOrderedCollections
     public static void main(String[] args) throws RunnerException, InterruptedException
     {
         boolean addPerf = false, printGc = false;
+        String xmx = "2G";
         Map<String, Integer> jmhParams = new HashMap<String, Integer>();
         jmhParams.put("forks", 1);
         jmhParams.put("threads", 4);
@@ -187,6 +188,11 @@ public class HashOrderedCollections
                 printGc = true;
                 continue;
             }
+            if (arg.startsWith("-Xmx"))
+            {
+                xmx = arg;
+                continue;
+            }
             String[] split = arg.split("=");
             if (split.length != 2)
                 throw new IllegalArgumentException(arg + " malformed");
@@ -206,7 +212,7 @@ public class HashOrderedCollections
             .warmupTime(TimeValue.seconds(jmhParams.get("warmupLength")))
             .measurementIterations(jmhParams.get("measurements"))
             .measurementTime(TimeValue.seconds(jmhParams.get("measurementLength")))
-            .jvmArgs("-dsa", "-da");
+            .jvmArgs("-dsa", "-da", "-server");
 
         if (printGc)
             builder.jvmArgsAppend("-XX:+PrintGC", "-XX:+PrintGCTimeStamps");
