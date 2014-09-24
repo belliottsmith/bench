@@ -182,6 +182,7 @@ public class HashOrderedCollections
     public static void main(String[] args) throws RunnerException, InterruptedException
     {
         boolean addPerf = false, printGc = false;
+        int keyCount = 1 << 24;
         List<String> vmArgs = new ArrayList<>();
         Map<String, Integer> jmhParams = new HashMap<String, Integer>();
         jmhParams.put("forks", 1);
@@ -219,9 +220,12 @@ public class HashOrderedCollections
                 jmhParams.put(split[0], Integer.parseInt(split[1]));
             else if (benchParams.containsKey(split[0]))
                 benchParams.put(split[0], split[1].split(","));
+            else if (split[0].equals("keyCount"))
+                keyCount = Integer.parseInt(split[1]);
             else
                 throw new IllegalArgumentException(arg + " unknown property");
         }
+
         if (vmArgs.isEmpty())
             vmArgs.add("-Xmx2G");
 
@@ -233,7 +237,7 @@ public class HashOrderedCollections
             .warmupTime(TimeValue.seconds(jmhParams.get("warmupLength")))
             .measurementIterations(jmhParams.get("measurements"))
             .measurementTime(TimeValue.seconds(jmhParams.get("measurementLength")))
-            .jvmArgs("-dsa", "-da", "-server");
+            .jvmArgs("-dsa", "-da", "-server", "-DkeyCount=" + keyCount);
 
         if (printGc)
         {
